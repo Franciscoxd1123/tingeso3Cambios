@@ -25,6 +25,22 @@ const CreateClient = () => {
     const [titleClientForm] = useState("Nuevo Cliente");
     const navigate = useNavigate();
 
+    const formatRut = (value) => {
+        // Elimina cualquier caracter no numérico (excepto K o k para el dígito verificador)
+        const cleanValue = value.replace(/[^0-9kK]/g, '');
+        
+        // Divide el valor en número base y dígito verificador
+        const numberPart = cleanValue.slice(0, -1);
+        const dv = cleanValue.slice(-1);
+    
+        // Añade puntos cada tres dígitos al número base
+        const formattedNumberPart = numberPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+        // Combina con el dígito verificador
+        return `${formattedNumberPart}${dv ? `-${dv}` : ''}`;
+    };
+    
+
     const saveClient = (e) => {
         e.preventDefault();
 
@@ -108,8 +124,8 @@ const CreateClient = () => {
                     label="Rut"
                     value={rut}
                     variant="standard"
-                    onChange={(e) => setRut(e.target.value)}
-                    helperText="Ej: 12.587.698-8"
+                    onChange={(e) => setRut(formatRut(e.target.value))}
+                    helperText="Ej: 20.403.846-5"
                     sx={textFieldStyle}
                 />
             </FormControl>

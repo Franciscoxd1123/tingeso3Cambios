@@ -2,28 +2,45 @@ import { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Box, Typography, CircularProgress } from "@mui/material";
 import requestService from "../services/requestService";
 import evaluationService from "../services/evaluationService";
+import clientService from "../services/clientService";
 import { Link } from "react-router-dom";
 
 const TotalCost = () => {
     const [requests, setRequests] = useState([]);
+    const [clients, setClients] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [totalCostResult, setTotalCostResult] = useState(null);
 
-    const doTotalCost = () => {
+    const doTotalCost = async () => {
         setLoading(true);
-        requestService.getAll()
-            .then((response) => {
-                const filteredRequests = response.data.filter(request => request.state === 4);
-                setRequests(filteredRequests);
-                setError(null);
-            })
-            .catch((error) => {
-                console.log("Error al obtener solicitudes:", error);
-                setError("Error al obtener solicitudes.");
-            })
-            .finally(() => setLoading(false));
-    };
+        try {
+            const response = await requestService.getAll();
+            const filteredRequests = response.data.filter(request => request.state === 4);
+            setRequests(filteredRequests);
+    
+            // Obtener los nombres y apellidos de los clientes por RUT
+            const clientPromises = filteredRequests.map(request =>
+                clientService.getClientByRut(request.rut)
+            );
+            const clientResponses = await Promise.all(clientPromises);
+    
+            // Mapear los RUTs a los nombres completos
+            const clientMap = {};
+            clientResponses.forEach((res, index) => {
+                const clientData = res.data; // Suponiendo que aquí tienes name y last_name
+                clientMap[filteredRequests[index].rut] = `${clientData.name} ${clientData.lastName}`;
+            });
+            setClients(clientMap);
+    
+            setError(null);
+        } catch (error) {
+            console.log("Error al obtener datos:", error);
+            setError("Error al obtener datos.");
+        } finally {
+            setLoading(false);
+        }
+    };    
 
     const calculateTotalCost = (id) => {
         setLoading(true);
@@ -44,25 +61,25 @@ const TotalCost = () => {
 
     const getStateLabel = (state) => {
         switch (state) {
-          case 4:
-            return "Pre-Aprobada";
-          default:
-            return "Desconocido";
+            case 4:
+                return "Pre-Aprobada";
+            default:
+                return "Desconocido";
         }
     };
 
     const getStateColor = (state) => {
         switch (state) {
-          case 3:
-            return 'yellow'; //En Evaluación
-          case 4:
-            return 'green'; //Pre-Aprobada
-          case 7:
-            return 'red'; //Rechazada
-          default:
-            return '#42b983'; //Default
+            case 3:
+                return 'yellow'; //En Evaluación
+            case 4:
+                return 'green'; //Pre-Aprobada
+            case 7:
+                return 'red'; //Rechazada
+            default:
+                return '#42b983'; //Default
         }
-      };
+    };
 
     return (
         <Box sx={{ backgroundColor: '#2c3e50', padding: 10 }}>
@@ -74,6 +91,7 @@ const TotalCost = () => {
                     <Table sx={{ minWidth: 650 }} size="small" aria-label="tabla de solicitudes">
                         <TableHead>
                             <TableRow>
+                                <TableCell align="center" sx={{ fontWeight: "bold", color: 'orange' }}>Nombre Cliente</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: "bold", color: 'orange' }}>Rut Solicitante</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: "bold", color: 'orange' }}>Tipo Préstamo</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: "bold", color: 'orange' }}>Monto</TableCell>
@@ -86,26 +104,29 @@ const TotalCost = () => {
                         <TableBody>
                             {requests.map((request) => (
                                 <TableRow key={request.id}>
-                                    <TableCell align="center" sx={{color: '#42b983'}}>{request.rut}</TableCell>
-                                    <TableCell align="center" sx={{color: '#42b983'}}>{request.type}</TableCell>
-                                    <TableCell align="center" sx={{color: '#42b983'}}>{request.amount}</TableCell>
-                                    <TableCell align="center" sx={{color: '#42b983'}}>{request.interest}%</TableCell>
-                                    <TableCell align="center" sx={{color: '#42b983'}}>{request.time} Años</TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>
+                                        {clients[request.rut] || "Cargando..."} {/* Mostrar el nombre del cliente */}
+                                    </TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>{request.rut}</TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>{request.type}</TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>{request.amount}</TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>{request.interest}%</TableCell>
+                                    <TableCell align="center" sx={{ color: '#42b983' }}>{request.time} Años</TableCell>
                                     <TableCell align="center">
-                                    <span style={{ color: getStateColor(request.state) }}> 
-                                        {getStateLabel(request.state)}
+                                        <span style={{ color: getStateColor(request.state) }}>
+                                            {getStateLabel(request.state)}
                                         </span>
                                     </TableCell>
                                     <TableCell align="center">
-                                        <Button variant="contained" 
-                                        sx={{
-                                            backgroundColor: '#42b983',
-                                            color: 'black',
-                                            '&:hover': {
-                                              backgroundColor: '#37a372',
-                                            },
-                                          }}  
-                                        onClick={() => calculateTotalCost(request.id)}>
+                                        <Button variant="contained"
+                                            sx={{
+                                                backgroundColor: '#42b983',
+                                                color: 'black',
+                                                '&:hover': {
+                                                    backgroundColor: '#37a372',
+                                                },
+                                            }}
+                                            onClick={() => calculateTotalCost(request.id)}>
                                             Calcular
                                         </Button>
                                     </TableCell>
@@ -118,30 +139,30 @@ const TotalCost = () => {
             {totalCostResult !== null && (
                 <Box sx={{ marginTop: 4 }}>
                     <Typography variant="h6" style={{ color: '#42b983' }}>
-                        Costo Total: 
+                        Costo Total:
                         <span style={{ color: 'orange' }}> ${totalCostResult}</span>
                     </Typography>
                 </Box>
             )}
-
             <Box sx={{ marginTop: 3 }}>
-            <Button
-              component={Link}
-              to="/home"
-              variant="outlined"
-              sx={{
-                  borderColor: "orange", 
-                  color: "orange",       
-                  "&:hover": {
-                      borderColor: "red", 
-                      color: "red",       
-                  },
-              }}
-          >
-              Back to Home
-          </Button>
+                <Button
+                    component={Link}
+                    to="/home"
+                    variant="outlined"
+                    sx={{
+                        borderColor: "orange",
+                        color: "orange",
+                        "&:hover": {
+                            borderColor: "red",
+                            color: "red",
+                        },
+                    }}
+                >
+                    Back to Home
+                </Button>
             </Box>
         </Box>
     );
 };
+
 export default TotalCost;

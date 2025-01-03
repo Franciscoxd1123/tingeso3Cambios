@@ -10,6 +10,21 @@ const RequestsRut = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const formatRut = (value) => {
+    // Elimina cualquier caracter no numérico (excepto K o k para el dígito verificador)
+    const cleanValue = value.replace(/[^0-9kK]/g, '');
+    
+    // Divide el valor en número base y dígito verificador
+    const numberPart = cleanValue.slice(0, -1);
+    const dv = cleanValue.slice(-1);
+
+    // Añade puntos cada tres dígitos al número base
+    const formattedNumberPart = numberPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    // Combina con el dígito verificador
+    return `${formattedNumberPart}${dv ? `-${dv}` : ''}`;
+  };
+
   const fetchRequests = () => {
     setLoading(true);
     myRequestsService.getRequestsByRut(rut)
@@ -80,7 +95,7 @@ const RequestsRut = () => {
       <TextField
         label="Ingrese su RUT"
         value={rut}
-        onChange={(e) => setRut(e.target.value)}
+        onChange={(e) => setRut(formatRut(e.target.value))}
         required
         sx={{
           marginBottom: 2,
